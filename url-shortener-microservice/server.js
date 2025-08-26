@@ -36,42 +36,51 @@ app.get('/', function (req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
 
-app.get('/api/shorturl/:input', (req, res) => {
-  const input = parseInt(req.params.input);
+app.get('/api/shorturl/:url', (req, res) => {
+  const url = parseInt(req.params.url);
 
-  Url.findOne({ short: input }, function (err, data) {
+  Url.findOne({ short: url }, function (err, data) {
     if (err || data === null) return res.json('URL NOT FOUND');
     return res.redirect(data.original);
   });
 });
 
-app.post('/api/shorturl', (req, res) => {
-  const originalUrl = req.body.url;
-
+function isValidUrl(url) {
   try {
-    new URL(originalUrl);
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch (err) {
-    return res.json({ error: 'invalid url' });
+    return false;
+  }
+}
+
+app.post('/api/shorturl', async (req, res) => {
+  const bodyUrl = req.body.url;
+
+  if (!isValidUrl(bodyUrl)) {
+    return res.json({ error: 'Invalid URL' });
   }
 
-  const shortUrl = counter++;
-  urls[shortUrl] = originalUrl;
+  let index = 1;
 
-  res.json({
-    original_url: originalUrl,
-    short_url: shortUrl,
-  });
-});
+  Url.findOne({})
+    .sort({ short: 'desc' })
+    .exec((err, data) => {
+      if (err) return res.json({ error: 'No url found.' });
 
-app.get('/api/shorturl/:id', (req, res) => {
-  const shortUrl = req.params.id;
-  const originalUrl = urls[shortUrl];
+      index = data !== null ? data.short + 1 : index;
 
-  if (!originalUrl) {
-    return res.json({ error: 'No short URL found for given input' });
-  }
-
-  res.redirect(originalUrl);
+      Url.findOneAndUpdate(
+        { original: bodyUrl },
+        { original: bodyUrl, short: index },
+        { new: true, upsert: true },
+        (err, newUrl) => {
+          if (!err) {
+            res.json({ original_url: bodyUrl, short_url: newUrl.short });
+          }
+        }
+      );
+    });
 });
 
 app.listen(port, function () {
