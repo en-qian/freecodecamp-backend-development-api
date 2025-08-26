@@ -34,7 +34,6 @@ app.get('/api/:date', (req, res) => {
     : res.json({ unix: date.valueOf(), utc: date.toUTCString() });
 });
 
-// listen for requests :)
 var listener = app.listen(process.env.PORT, function () {
   console.log('Your app is listening on port ' + listener.address().port);
 });
