@@ -45,36 +45,33 @@ app.get('/api/shorturl/:input', (req, res) => {
   });
 });
 
-app.post('/api/shorturl', async (req, res) => {
-  const bodyUrl = req.body.url;
-  let urlRegex = new RegExp(
-    /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)/
-  );
+app.post('/api/shorturl', (req, res) => {
+  const originalUrl = req.body.url;
 
-  if (!bodyUrl.match(urlRegex)) {
-    return res.json({ error: 'Invalid URL' });
+  try {
+    new URL(originalUrl);
+  } catch (err) {
+    return res.json({ error: 'invalid url' });
   }
 
-  let index = 1;
+  const shortUrl = counter++;
+  urls[shortUrl] = originalUrl;
 
-  Url.findOne({})
-    .sort({ short: 'desc' })
-    .exec((err, data) => {
-      if (err) return res.json({ error: 'No url found.' });
+  res.json({
+    original_url: originalUrl,
+    short_url: shortUrl,
+  });
+});
 
-      index = data !== null ? data.short + 1 : index;
+app.get('/api/shorturl/:id', (req, res) => {
+  const shortUrl = req.params.id;
+  const originalUrl = urls[shortUrl];
 
-      Url.findOneAndUpdate(
-        { original: bodyUrl },
-        { original: bodyUrl, short: index },
-        { new: true, upsert: true },
-        (err, newUrl) => {
-          if (!err) {
-            res.json({ original_url: bodyUrl, short_url: newUrl.short });
-          }
-        }
-      );
-    });
+  if (!originalUrl) {
+    return res.json({ error: 'No short URL found for given input' });
+  }
+
+  res.redirect(originalUrl);
 });
 
 app.listen(port, function () {
