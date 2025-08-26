@@ -3,3 +3,4 @@
 node_modules
 
 url-shortener-microservice/.env
+exercise-tracker/.env
